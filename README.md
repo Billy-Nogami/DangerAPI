@@ -13,6 +13,20 @@ REST-сервис для хранения и получения сведений
 - Docker Compose для локального запуска;
 - unit-тесты домена, сценариев, HTTP- и PostgreSQL-слоя.
 
+## OpenAPI и генерация кода
+
+[openapi/openapi.yaml](openapi/openapi.yaml) — единственный источник правды для внешнего HTTP-контракта. Из него генерируются JSON-модели, интерфейс обработчиков и маршруты стандартного `net/http`.
+
+```bash
+make generate
+```
+
+Сгенерированный файл `internal/transport/generated/api.gen.go` вручную не редактируется. Проверка актуальности генерации:
+
+```bash
+make check-generate
+```
+
 ## Быстрый старт
 
 Нужны Docker с Docker Compose и `make`.

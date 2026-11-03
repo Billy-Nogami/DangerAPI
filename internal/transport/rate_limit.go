@@ -35,6 +35,11 @@ func NewRateLimiter(maximumRequests int, window time.Duration) *RateLimiter {
 
 func (l *RateLimiter) Limit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/health" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		allowed, retryAfter := l.allow(clientIP(r), time.Now())
 		if !allowed {
 			w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(retryAfter.Seconds()))))

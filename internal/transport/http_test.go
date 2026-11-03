@@ -12,6 +12,7 @@ import (
 
 	"threat-service/internal/domain/threat"
 	"threat-service/internal/repository"
+	"threat-service/internal/transport/generated"
 )
 
 func TestCreateThreat(t *testing.T) {
@@ -44,11 +45,11 @@ func TestCreateThreat(t *testing.T) {
 		t.Fatalf("Content-Type = %q", contentType)
 	}
 
-	var body threatResponse
+	var body generated.ThreatResponse
 	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
 		t.Fatalf("не удалось разобрать ответ: %v", err)
 	}
-	if body.MD5 != string(entity.MD5) || body.Name != entity.Name {
+	if body.Md5 != string(entity.MD5) || body.Name != entity.Name {
 		t.Fatalf("тело ответа = %+v", body)
 	}
 }
@@ -113,7 +114,7 @@ func TestServiceErrorsAreConvertedToHTTPStatus(t *testing.T) {
 			if response.Code != testCase.wantStatus {
 				t.Fatalf("статус = %d, нужен %d", response.Code, testCase.wantStatus)
 			}
-			var body errorResponse
+			var body generated.ErrorResponse
 			if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
 				t.Fatalf("не удалось разобрать ошибку: %v", err)
 			}

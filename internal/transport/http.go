@@ -13,6 +13,7 @@ import (
 
 	"threat-service/internal/domain/threat"
 	"threat-service/internal/repository"
+	"threat-service/internal/transport/generated"
 )
 
 const maxRequestBodySize = 1 << 20
@@ -32,12 +33,10 @@ type HealthChecker interface {
 // NewHTTPHandler собирает HTTP-маршруты сервиса угроз.
 func NewHTTPHandler(service ThreatService, healthChecker HealthChecker, rateLimiter *RateLimiter) http.Handler {
 	handler := &handler{service: service, healthChecker: healthChecker}
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /health", handler.health)
-	mux.Handle("POST /info", rateLimiter.Limit(http.HandlerFunc(handler.createThreat)))
-	mux.Handle("GET /info/{md5}", rateLimiter.Limit(http.HandlerFunc(handler.getThreat)))
-	mux.Handle("PUT /info/{md5}", rateLimiter.Limit(http.HandlerFunc(handler.updateThreat)))
-	return withRequestID(withAccessLog(log.Default(), mux))
+	router := generated.HandlerWithOptions(handler, generated.StdHTTPServerOptions{
+		Middlewares: []generated.MiddlewareFunc{rateLimiter.Limit},
+	})
+	return withRequestID(withAccessLog(log.Default(), router))
 }
 
 type handler struct {
@@ -45,47 +44,9 @@ type handler struct {
 	healthChecker HealthChecker
 }
 
-type createThreatRequest struct {
-	MD5         string          `json:"md5"`
-	Name        string          `json:"name"`
-	Type        threat.Type     `json:"type"`
-	Severity    threat.Severity `json:"severity"`
-	Description string          `json:"description"`
-	Categories  []string        `json:"categories"`
-	FirstSeenAt *time.Time      `json:"firstSeenAt"`
-}
+var _ generated.ServerInterface = (*handler)(nil)
 
-type updateThreatRequest struct {
-	Name        string          `json:"name"`
-	Type        threat.Type     `json:"type"`
-	Severity    threat.Severity `json:"severity"`
-	Description string          `json:"description"`
-	Categories  []string        `json:"categories"`
-	FirstSeenAt *time.Time      `json:"firstSeenAt"`
-}
-
-type threatResponse struct {
-	MD5         string          `json:"md5"`
-	Name        string          `json:"name"`
-	Type        threat.Type     `json:"type"`
-	Severity    threat.Severity `json:"severity"`
-	Description string          `json:"description"`
-	Categories  []string        `json:"categories"`
-	FirstSeenAt *time.Time      `json:"firstSeenAt"`
-	CreatedAt   time.Time       `json:"createdAt"`
-	UpdatedAt   time.Time       `json:"updatedAt"`
-}
-
-type errorResponse struct {
-	Message string `json:"message"`
-	Details string `json:"details,omitempty"`
-}
-
-type healthResponse struct {
-	Status string `json:"status"`
-}
-
-func (h *handler) health(w http.ResponseWriter, r *http.Request) {
+func (h *handler) GetHealth(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
 
@@ -94,23 +55,23 @@ func (h *handler) health(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, healthResponse{Status: "ok"})
+	writeJSON(w, http.StatusOK, generated.HealthResponse{Status: generated.Ok})
 }
 
-func (h *handler) createThreat(w http.ResponseWriter, r *http.Request) {
-	var request createThreatRequest
+func (h *handler) CreateThreat(w http.ResponseWriter, r *http.Request) {
+	var request generated.ThreatCreateRequest
 	if err := decodeJSON(w, r, &request); err != nil {
 		writeError(w, http.StatusBadRequest, "Некорректный JSON", err.Error())
 		return
 	}
 
 	entity, err := h.service.Create(r.Context(), threat.CreateParams{
-		MD5:         threat.MD5(request.MD5),
+		MD5:         threat.MD5(request.Md5),
 		Name:        request.Name,
-		Type:        request.Type,
-		Severity:    request.Severity,
-		Description: request.Description,
-		Categories:  request.Categories,
+		Type:        threat.Type(request.Type),
+		Severity:    threat.Severity(request.Severity),
+		Description: valueOrEmpty(request.Description),
+		Categories:  valueOrNil(request.Categories),
 		FirstSeenAt: request.FirstSeenAt,
 	})
 	if err != nil {
@@ -121,8 +82,8 @@ func (h *handler) createThreat(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, threatResponseFromDomain(entity))
 }
 
-func (h *handler) getThreat(w http.ResponseWriter, r *http.Request) {
-	entity, err := h.service.GetByMD5(r.Context(), threat.MD5(r.PathValue("md5")))
+func (h *handler) GetInfoByMd5(w http.ResponseWriter, r *http.Request, md5 generated.ThreatMD5) {
+	entity, err := h.service.GetByMD5(r.Context(), threat.MD5(md5))
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -131,19 +92,19 @@ func (h *handler) getThreat(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, threatResponseFromDomain(entity))
 }
 
-func (h *handler) updateThreat(w http.ResponseWriter, r *http.Request) {
-	var request updateThreatRequest
+func (h *handler) UpdateThreat(w http.ResponseWriter, r *http.Request, md5 generated.ThreatMD5) {
+	var request generated.ThreatUpdateRequest
 	if err := decodeJSON(w, r, &request); err != nil {
 		writeError(w, http.StatusBadRequest, "Некорректный JSON", err.Error())
 		return
 	}
 
-	entity, err := h.service.Update(r.Context(), threat.MD5(r.PathValue("md5")), threat.UpdateParams{
+	entity, err := h.service.Update(r.Context(), threat.MD5(md5), threat.UpdateParams{
 		Name:        request.Name,
-		Type:        request.Type,
-		Severity:    request.Severity,
-		Description: request.Description,
-		Categories:  request.Categories,
+		Type:        threat.Type(request.Type),
+		Severity:    threat.Severity(request.Severity),
+		Description: valueOrEmpty(request.Description),
+		Categories:  valueOrNil(request.Categories),
 		FirstSeenAt: request.FirstSeenAt,
 	})
 	if err != nil {
@@ -188,7 +149,11 @@ func writeServiceError(w http.ResponseWriter, err error) {
 }
 
 func writeError(w http.ResponseWriter, status int, message, details string) {
-	writeJSON(w, status, errorResponse{Message: message, Details: details})
+	response := generated.ErrorResponse{Message: message}
+	if details != "" {
+		response.Details = &details
+	}
+	writeJSON(w, status, response)
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
@@ -199,21 +164,37 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 	}
 }
 
-func threatResponseFromDomain(entity threat.Threat) threatResponse {
+func threatResponseFromDomain(entity threat.Threat) generated.ThreatResponse {
 	categories := entity.Categories
 	if categories == nil {
 		categories = []string{}
 	}
 
-	return threatResponse{
-		MD5:         string(entity.MD5),
+	return generated.ThreatResponse{
+		Md5:         string(entity.MD5),
 		Name:        entity.Name,
-		Type:        entity.Type,
-		Severity:    entity.Severity,
+		Type:        generated.ThreatType(entity.Type),
+		Severity:    generated.ThreatSeverity(entity.Severity),
 		Description: entity.Description,
 		Categories:  categories,
 		FirstSeenAt: entity.FirstSeenAt,
 		CreatedAt:   entity.CreatedAt,
 		UpdatedAt:   entity.UpdatedAt,
 	}
+}
+
+func valueOrEmpty(value *string) string {
+	if value == nil {
+		return ""
+	}
+
+	return *value
+}
+
+func valueOrNil(value *[]string) []string {
+	if value == nil {
+		return nil
+	}
+
+	return *value
 }

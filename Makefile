@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help up down reset logs ps migrate test test-race test-integration vet format check
+.PHONY: help up down reset logs ps migrate test test-race test-integration generate check-generate vet format check
 
 help:
 	@printf "Доступные команды:\n"
@@ -13,6 +13,8 @@ help:
 	@printf "  make test      Запустить unit-тесты\n"
 	@printf "  make test-race Запустить тесты с проверкой гонок\n"
 	@printf "  make test-integration Запустить интеграционные тесты с PostgreSQL в Docker\n"
+	@printf "  make generate  Сгенерировать HTTP-код из OpenAPI\n"
+	@printf "  make check-generate Проверить актуальность сгенерированного кода\n"
 	@printf "  make vet       Запустить статический анализ Go\n"
 	@printf "  make format    Отформатировать Go-код\n"
 	@printf "  make check     Проверить форматирование, тесты и vet\n"
@@ -44,6 +46,13 @@ test-race:
 test-integration:
 	go test -tags=integration ./tests/integration
 
+generate:
+	go generate ./internal/transport/generated
+
+check-generate:
+	@$(MAKE) generate
+	@git diff --exit-code -- internal/transport/generated
+
 vet:
 	go vet ./...
 
@@ -52,5 +61,6 @@ format:
 
 check:
 	@test -z "$$(gofmt -l $$(rg --files -g '*.go'))"
+	@$(MAKE) check-generate
 	@go test ./...
 	@go vet ./...
