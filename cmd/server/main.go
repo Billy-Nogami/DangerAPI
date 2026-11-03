@@ -43,7 +43,7 @@ func main() {
 	)
 	server := &http.Server{
 		Addr:              configuration.HTTPAddress,
-		Handler:           transport.NewHTTPHandler(threatService),
+		Handler:           transport.NewHTTPHandler(threatService, pool),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      15 * time.Second,

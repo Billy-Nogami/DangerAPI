@@ -23,10 +23,16 @@ type ThreatService interface {
 	Update(ctx context.Context, md5 threat.MD5, params threat.UpdateParams) (threat.Threat, error)
 }
 
+// HealthChecker проверяет доступность зависимостей, нужных для работы сервиса.
+type HealthChecker interface {
+	Ping(ctx context.Context) error
+}
+
 // NewHTTPHandler собирает HTTP-маршруты сервиса угроз.
-func NewHTTPHandler(service ThreatService) http.Handler {
-	handler := &handler{service: service}
+func NewHTTPHandler(service ThreatService, healthChecker HealthChecker) http.Handler {
+	handler := &handler{service: service, healthChecker: healthChecker}
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /health", handler.health)
 	mux.HandleFunc("POST /info", handler.createThreat)
 	mux.HandleFunc("GET /info/{md5}", handler.getThreat)
 	mux.HandleFunc("PUT /info/{md5}", handler.updateThreat)
@@ -34,7 +40,8 @@ func NewHTTPHandler(service ThreatService) http.Handler {
 }
 
 type handler struct {
-	service ThreatService
+	service       ThreatService
+	healthChecker HealthChecker
 }
 
 type createThreatRequest struct {
@@ -71,6 +78,22 @@ type threatResponse struct {
 type errorResponse struct {
 	Message string `json:"message"`
 	Details string `json:"details,omitempty"`
+}
+
+type healthResponse struct {
+	Status string `json:"status"`
+}
+
+func (h *handler) health(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	if err := h.healthChecker.Ping(ctx); err != nil {
+		writeError(w, http.StatusServiceUnavailable, "Сервис временно недоступен", "Не удалось подключиться к хранилищу")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, healthResponse{Status: "ok"})
 }
 
 func (h *handler) createThreat(w http.ResponseWriter, r *http.Request) {

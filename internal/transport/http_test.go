@@ -35,7 +35,7 @@ func TestCreateThreat(t *testing.T) {
 	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
 
-	NewHTTPHandler(service).ServeHTTP(response, request)
+	newTestHandler(service).ServeHTTP(response, request)
 
 	if response.Code != http.StatusCreated {
 		t.Fatalf("статус = %d, нужен %d", response.Code, http.StatusCreated)
@@ -108,7 +108,7 @@ func TestServiceErrorsAreConvertedToHTTPStatus(t *testing.T) {
 			}
 			response := httptest.NewRecorder()
 
-			NewHTTPHandler(testCase.service).ServeHTTP(response, request)
+			newTestHandler(testCase.service).ServeHTTP(response, request)
 
 			if response.Code != testCase.wantStatus {
 				t.Fatalf("статус = %d, нужен %d", response.Code, testCase.wantStatus)
@@ -140,10 +140,48 @@ func TestCreateThreatRejectsUnknownJSONFields(t *testing.T) {
 	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
 
-	NewHTTPHandler(service).ServeHTTP(response, request)
+	newTestHandler(service).ServeHTTP(response, request)
 
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("статус = %d, нужен %d", response.Code, http.StatusBadRequest)
+	}
+}
+
+func TestHealth(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name        string
+		healthCheck healthCheckerFunc
+		wantStatus  int
+	}{
+		{
+			name: "хранилище доступно",
+			healthCheck: func(context.Context) error {
+				return nil
+			},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name: "хранилище недоступно",
+			healthCheck: func(context.Context) error {
+				return errors.New("соединение с PostgreSQL отсутствует")
+			},
+			wantStatus: http.StatusServiceUnavailable,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodGet, "/health", nil)
+			response := httptest.NewRecorder()
+
+			NewHTTPHandler(&threatServiceStub{}, testCase.healthCheck).ServeHTTP(response, request)
+
+			if response.Code != testCase.wantStatus {
+				t.Fatalf("статус = %d, нужен %d", response.Code, testCase.wantStatus)
+			}
+		})
 	}
 }
 
@@ -151,6 +189,18 @@ type threatServiceStub struct {
 	create func(context.Context, threat.CreateParams) (threat.Threat, error)
 	get    func(context.Context, threat.MD5) (threat.Threat, error)
 	update func(context.Context, threat.MD5, threat.UpdateParams) (threat.Threat, error)
+}
+
+type healthCheckerFunc func(context.Context) error
+
+func (f healthCheckerFunc) Ping(ctx context.Context) error {
+	return f(ctx)
+}
+
+func newTestHandler(service *threatServiceStub) http.Handler {
+	return NewHTTPHandler(service, healthCheckerFunc(func(context.Context) error {
+		return nil
+	}))
 }
 
 func (s *threatServiceStub) Create(ctx context.Context, params threat.CreateParams) (threat.Threat, error) {

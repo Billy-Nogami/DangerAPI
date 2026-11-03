@@ -5,6 +5,21 @@ info:
   version: 1.0.0
 
 paths:
+  /health:
+    get:
+      summary: Проверить готовность сервиса
+      description: Проверяет доступность PostgreSQL и готовность сервиса обрабатывать запросы.
+      operationId: getHealth
+      responses:
+        '200':
+          description: Сервис и хранилище доступны.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
   /info:
     post:
       summary: Создать новую запись об угрозе
@@ -87,6 +102,16 @@ components:
         example: d41d8cd98f00b204e9800998ecf8427e
 
   schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [ok]
+          description: Текущее состояние сервиса.
+
     ThreatCreateRequest:
       type: object
       required:
@@ -270,6 +295,12 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
     InternalError:
       description: Внутренняя ошибка сервера.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ServiceUnavailable:
+      description: Сервис временно не может подключиться к хранилищу.
       content:
         application/json:
           schema:
