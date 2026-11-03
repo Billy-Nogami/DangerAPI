@@ -103,6 +103,7 @@ components:
         name:
           type: string
           minLength: 1
+          maxLength: 255
           description: Название угрозы.
           example: Trojan.Win32.Generic
         type:
@@ -141,6 +142,7 @@ components:
         name:
           type: string
           minLength: 1
+          maxLength: 255
           description: Название угрозы.
           example: Trojan.Win32.Generic
         type:
@@ -189,6 +191,7 @@ components:
           example: d41d8cd98f00b204e9800998ecf8427e
         name:
           type: string
+          maxLength: 255
           description: Название угрозы.
           example: Trojan.Win32.Generic
         type:
