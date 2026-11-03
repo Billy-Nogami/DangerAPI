@@ -42,6 +42,8 @@ paths:
           $ref: '#/components/responses/InvalidRequest'
         '409':
           $ref: '#/components/responses/ThreatAlreadyExists'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -63,6 +65,8 @@ paths:
           $ref: '#/components/responses/InvalidRequest'
         '404':
           $ref: '#/components/responses/ThreatNotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalError'
     put:
@@ -86,6 +90,8 @@ paths:
           $ref: '#/components/responses/InvalidRequest'
         '404':
           $ref: '#/components/responses/ThreatNotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -289,6 +295,17 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
     ThreatAlreadyExists:
       description: Угроза с таким MD5 уже существует.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    TooManyRequests:
+      description: Превышен лимит запросов от клиента.
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Количество секунд до следующей попытки.
       content:
         application/json:
           schema:

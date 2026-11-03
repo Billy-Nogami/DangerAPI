@@ -176,7 +176,7 @@ func TestHealth(t *testing.T) {
 			request := httptest.NewRequest(http.MethodGet, "/health", nil)
 			response := httptest.NewRecorder()
 
-			NewHTTPHandler(&threatServiceStub{}, testCase.healthCheck).ServeHTTP(response, request)
+			NewHTTPHandler(&threatServiceStub{}, testCase.healthCheck, NewRateLimiter(1, time.Minute)).ServeHTTP(response, request)
 
 			if response.Code != testCase.wantStatus {
 				t.Fatalf("статус = %d, нужен %d", response.Code, testCase.wantStatus)
@@ -225,6 +225,31 @@ func TestRequestID(t *testing.T) {
 	}
 }
 
+func TestRateLimit(t *testing.T) {
+	t.Parallel()
+
+	service := &threatServiceStub{
+		get: func(context.Context, threat.MD5) (threat.Threat, error) {
+			return testThreat(), nil
+		},
+	}
+	handler := NewHTTPHandler(service, healthCheckerFunc(func(context.Context) error {
+		return nil
+	}), NewRateLimiter(1, time.Minute))
+
+	for attempt, expectedStatus := range []int{http.StatusOK, http.StatusTooManyRequests} {
+		request := httptest.NewRequest(http.MethodGet, "/info/d41d8cd98f00b204e9800998ecf8427e", nil)
+		request.RemoteAddr = "192.0.2.10:12345"
+		response := httptest.NewRecorder()
+
+		handler.ServeHTTP(response, request)
+
+		if response.Code != expectedStatus {
+			t.Fatalf("запрос %d: статус = %d, нужен %d", attempt+1, response.Code, expectedStatus)
+		}
+	}
+}
+
 type threatServiceStub struct {
 	create func(context.Context, threat.CreateParams) (threat.Threat, error)
 	get    func(context.Context, threat.MD5) (threat.Threat, error)
@@ -240,7 +265,7 @@ func (f healthCheckerFunc) Ping(ctx context.Context) error {
 func newTestHandler(service *threatServiceStub) http.Handler {
 	return NewHTTPHandler(service, healthCheckerFunc(func(context.Context) error {
 		return nil
-	}))
+	}), NewRateLimiter(100, time.Minute))
 }
 
 func (s *threatServiceStub) Create(ctx context.Context, params threat.CreateParams) (threat.Threat, error) {

@@ -34,6 +34,8 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-threat_service}:${POSTGRES_PASSWORD:-threat_service}@db:5432/${POSTGRES_DB:-threat_service}?sslmode=disable
       HTTP_ADDRESS: :8080
+      RATE_LIMIT_REQUESTS: ${RATE_LIMIT_REQUESTS:-60}
+      RATE_LIMIT_WINDOW: ${RATE_LIMIT_WINDOW:-1m}
     ports:
       - "${HTTP_PORT:-8080}:8080"
     depends_on:

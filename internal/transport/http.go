@@ -30,13 +30,13 @@ type HealthChecker interface {
 }
 
 // NewHTTPHandler собирает HTTP-маршруты сервиса угроз.
-func NewHTTPHandler(service ThreatService, healthChecker HealthChecker) http.Handler {
+func NewHTTPHandler(service ThreatService, healthChecker HealthChecker, rateLimiter *RateLimiter) http.Handler {
 	handler := &handler{service: service, healthChecker: healthChecker}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", handler.health)
-	mux.HandleFunc("POST /info", handler.createThreat)
-	mux.HandleFunc("GET /info/{md5}", handler.getThreat)
-	mux.HandleFunc("PUT /info/{md5}", handler.updateThreat)
+	mux.Handle("POST /info", rateLimiter.Limit(http.HandlerFunc(handler.createThreat)))
+	mux.Handle("GET /info/{md5}", rateLimiter.Limit(http.HandlerFunc(handler.getThreat)))
+	mux.Handle("PUT /info/{md5}", rateLimiter.Limit(http.HandlerFunc(handler.updateThreat)))
 	return withRequestID(withAccessLog(log.Default(), mux))
 }
 

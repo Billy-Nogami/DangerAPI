@@ -41,7 +41,7 @@ func TestThreatAPIWithPostgreSQL(t *testing.T) {
 	applyMigrations(t, ctx, pool)
 
 	threatService := usecase.NewThreatService(postgres.NewThreatRepository(pool), usecase.SystemClock{})
-	server := httptest.NewServer(transport.NewHTTPHandler(threatService, pool))
+	server := httptest.NewServer(transport.NewHTTPHandler(threatService, pool, transport.NewRateLimiter(100, time.Minute)))
 	defer server.Close()
 
 	assertStatus(t, http.MethodGet, server.URL+"/health", "", http.StatusOK)

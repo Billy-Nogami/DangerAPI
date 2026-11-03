@@ -42,8 +42,12 @@ func main() {
 		usecase.SystemClock{},
 	)
 	server := &http.Server{
-		Addr:              configuration.HTTPAddress,
-		Handler:           transport.NewHTTPHandler(threatService, pool),
+		Addr: configuration.HTTPAddress,
+		Handler: transport.NewHTTPHandler(
+			threatService,
+			pool,
+			transport.NewRateLimiter(configuration.RateLimitRequests, configuration.RateLimitWindow),
+		),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      15 * time.Second,

@@ -59,6 +59,8 @@ make reset
 | `POSTGRES_PASSWORD` | `threat_service` | Пароль PostgreSQL |
 | `POSTGRES_PORT` | `5432` | Порт PostgreSQL на хосте |
 | `HTTP_PORT` | `8080` | Порт API на хосте |
+| `RATE_LIMIT_REQUESTS` | `60` | Число API-запросов с одного IP за окно |
+| `RATE_LIMIT_WINDOW` | `1m` | Длительность окна ограничения |
 
 Приложение получает `DATABASE_URL` и `HTTP_ADDRESS` из Docker Compose. При ручном запуске их нужно задать самостоятельно.
 
