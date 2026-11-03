@@ -1,0 +1,172 @@
+openapi: 3.0.3
+info:
+  title: Information Exchange Service
+  description: API для обмена информацией об угрозах.
+  version: 1.0.0
+
+paths:
+  /info:
+    post:
+      summary: Создать новую запись об угрозе
+      description: Добавляет новую информацию об угрозе. MD5 должен быть уникальным.
+      operationId: createThreat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ThreatCreateRequest'
+      responses:
+        '201':
+          description: Запись успешно создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThreatResponse'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '409':
+          $ref: '#/components/responses/ThreatAlreadyExists'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /info/{md5}:
+    parameters:
+      - $ref: '#/components/parameters/ThreatMD5'
+    get:
+      summary: Получить информацию об угрозе по MD5
+      description: Возвращает полную информацию об угрозе для указанного MD5-хеша.
+      operationId: getInfoByMd5
+      responses:
+        '200':
+          description: Успешный ответ с информацией об угрозе
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThreatResponse'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '404':
+          $ref: '#/components/responses/ThreatNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      summary: Обновить информацию об угрозе по MD5
+      description: Заменяет информацию о существующей угрозе.
+      operationId: updateThreat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ThreatUpdateRequest'
+      responses:
+        '200':
+          description: Информация успешно обновлена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThreatResponse'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '404':
+          $ref: '#/components/responses/ThreatNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  parameters:
+    ThreatMD5:
+      name: md5
+      in: path
+      required: true
+      description: MD5-хеш файла (32 шестнадцатеричных символа).
+      schema:
+        type: string
+        pattern: '^[a-fA-F0-9]{32}$'
+        example: d41d8cd98f00b204e9800998ecf8427e
+
+  schemas:
+    ThreatCreateRequest:
+      type: object
+      required:
+        - md5
+        - name
+      properties:
+        md5:
+          type: string
+          pattern: '^[a-fA-F0-9]{32}$'
+          description: MD5-хеш файла.
+          example: d41d8cd98f00b204e9800998ecf8427e
+        name:
+          type: string
+          minLength: 1
+          description: Название угрозы.
+          example: Trojan.Win32.Generic
+
+    ThreatUpdateRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: Название угрозы.
+          example: Trojan.Win32.Generic
+
+    ThreatResponse:
+      type: object
+      required:
+        - md5
+        - name
+      properties:
+        md5:
+          type: string
+          pattern: '^[a-fA-F0-9]{32}$'
+          description: MD5-хеш файла.
+          example: d41d8cd98f00b204e9800998ecf8427e
+        name:
+          type: string
+          description: Название угрозы.
+          example: Trojan.Win32.Generic
+
+    ErrorResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: Человекочитаемое описание ошибки.
+          example: Threat not found
+        details:
+          type: string
+          description: Дополнительная информация об ошибке.
+          example: No threat with the requested MD5 was found
+
+  responses:
+    InvalidRequest:
+      description: Некорректные данные запроса или формат MD5.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ThreatNotFound:
+      description: Угроза с указанным MD5 не найдена.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ThreatAlreadyExists:
+      description: Угроза с таким MD5 уже существует.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalError:
+      description: Внутренняя ошибка сервера.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
