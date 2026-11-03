@@ -1,0 +1,122 @@
+# Information Exchange Service
+
+REST-сервис для хранения и получения сведений об угрозах. Контракт API описан в [openapi/openapi.yaml](openapi/openapi.yaml).
+
+## Что реализовано
+
+- создание, получение и полное обновление угрозы;
+- валидация MD5, типа, критичности, текста и категорий;
+- PostgreSQL и SQL-миграции;
+- HTTP-ошибки `400`, `404`, `409`, `500` в JSON-формате;
+- Docker Compose для локального запуска;
+- unit-тесты домена, сценариев, HTTP- и PostgreSQL-слоя.
+
+## Быстрый старт
+
+Нужны Docker с Docker Compose и `make`.
+
+```bash
+cp .env.example .env
+make up
+```
+
+Команда поднимет PostgreSQL, применит миграции и запустит API на `http://localhost:8080`.
+
+Проверить состояние сервисов:
+
+```bash
+make ps
+```
+
+Посмотреть логи:
+
+```bash
+make logs
+```
+
+Остановить окружение:
+
+```bash
+make down
+```
+
+Полностью удалить локальную БД и контейнеры:
+
+```bash
+make reset
+```
+
+`make reset` удаляет данные PostgreSQL.
+
+## Переменные окружения
+
+| Переменная | Значение по умолчанию | Назначение |
+|---|---|---|
+| `POSTGRES_DB` | `threat_service` | Имя базы данных |
+| `POSTGRES_USER` | `threat_service` | Пользователь PostgreSQL |
+| `POSTGRES_PASSWORD` | `threat_service` | Пароль PostgreSQL |
+| `POSTGRES_PORT` | `5432` | Порт PostgreSQL на хосте |
+| `HTTP_PORT` | `8080` | Порт API на хосте |
+
+Приложение получает `DATABASE_URL` и `HTTP_ADDRESS` из Docker Compose. При ручном запуске их нужно задать самостоятельно.
+
+## Примеры запросов
+
+Создать угрозу:
+
+```bash
+curl --request POST http://localhost:8080/info \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "md5": "d41d8cd98f00b204e9800998ecf8427e",
+    "name": "Trojan.Win32.Generic",
+    "type": "trojan",
+    "severity": "high",
+    "description": "Вредоносная программа.",
+    "categories": ["banker", "stealer"],
+    "firstSeenAt": "2026-10-15T10:00:00Z"
+  }'
+```
+
+Получить угрозу:
+
+```bash
+curl http://localhost:8080/info/d41d8cd98f00b204e9800998ecf8427e
+```
+
+Обновить угрозу:
+
+```bash
+curl --request PUT http://localhost:8080/info/d41d8cd98f00b204e9800998ecf8427e \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "name": "Trojan.Win32.Banker",
+    "type": "trojan",
+    "severity": "critical",
+    "description": "Обновлённая классификация.",
+    "categories": ["banker", "credential-theft"],
+    "firstSeenAt": "2026-10-15T10:00:00Z"
+  }'
+```
+
+## Проверки
+
+```bash
+make check
+```
+
+Дополнительно можно проверить гонки данных:
+
+```bash
+make test-race
+```
+
+## Структура
+
+- `cmd/server` — точка входа;
+- `internal/domain` — сущности и правила;
+- `internal/usecase` — прикладные сценарии;
+- `internal/repository` — контракт хранилища и PostgreSQL-адаптер;
+- `internal/transport` — HTTP-слой;
+- `migrations` — SQL-миграции;
+- `openapi` — контракт API.

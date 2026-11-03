@@ -1,0 +1,45 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-threat_service}
+      POSTGRES_USER: ${POSTGRES_USER:-threat_service}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-threat_service}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  migrate:
+    image: migrate/migrate:v4.19.1
+    command:
+      - "-path=/migrations"
+      - "-database=postgres://${POSTGRES_USER:-threat_service}:${POSTGRES_PASSWORD:-threat_service}@db:5432/${POSTGRES_DB:-threat_service}?sslmode=disable"
+      - "up"
+    volumes:
+      - ./migrations:/migrations:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    build:
+      context: .
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-threat_service}:${POSTGRES_PASSWORD:-threat_service}@db:5432/${POSTGRES_DB:-threat_service}?sslmode=disable
+      HTTP_ADDRESS: :8080
+    ports:
+      - "${HTTP_PORT:-8080}:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
