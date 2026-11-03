@@ -8,13 +8,13 @@ import (
 )
 
 var (
-	// ErrNotFound is returned when a threat does not exist in the repository.
+	// ErrNotFound возвращается, когда угроза отсутствует в хранилище.
 	ErrNotFound = errors.New("threat not found")
-	// ErrAlreadyExists is returned when a threat with the same MD5 already exists.
+	// ErrAlreadyExists возвращается при попытке создать угрозу с существующим MD5.
 	ErrAlreadyExists = errors.New("threat already exists")
 )
 
-// ThreatRepository persists and retrieves threat entities.
+// ThreatRepository сохраняет угрозы и ищет их в хранилище.
 type ThreatRepository interface {
 	Create(ctx context.Context, entity threat.Threat) error
 	GetByMD5(ctx context.Context, md5 threat.MD5) (threat.Threat, error)

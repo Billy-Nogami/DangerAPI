@@ -13,7 +13,7 @@ const (
 	maxCategoryLength    = 100
 )
 
-// ValidationError identifies a field that does not meet domain requirements.
+// ValidationError показывает, какое поле не прошло проверку доменных правил.
 type ValidationError struct {
 	Field   string
 	Message string
@@ -23,12 +23,12 @@ func (e *ValidationError) Error() string {
 	return fmt.Sprintf("invalid %s: %s", e.Field, e.Message)
 }
 
-// NormalizeMD5 converts a validated MD5 value to its canonical representation.
+// NormalizeMD5 приводит проверенный MD5 к единому виду в нижнем регистре.
 func NormalizeMD5(value MD5) MD5 {
 	return MD5(strings.ToLower(string(value)))
 }
 
-// Validate checks whether a new threat can be created.
+// Validate проверяет данные, с которыми создаётся новая угроза.
 func (p CreateParams) Validate() error {
 	if err := ValidateMD5(p.MD5); err != nil {
 		return err
@@ -43,7 +43,7 @@ func (p CreateParams) Validate() error {
 	)
 }
 
-// Validate checks whether the mutable part of a threat can be replaced.
+// Validate проверяет данные, которыми заменяется изменяемая часть угрозы.
 func (p UpdateParams) Validate() error {
 	return validateMutableFields(
 		p.Name,
@@ -54,7 +54,7 @@ func (p UpdateParams) Validate() error {
 	)
 }
 
-// Validate checks the complete domain entity, including server-controlled dates.
+// Validate проверяет всю сущность, включая даты, которые устанавливает сервис.
 func (t Threat) Validate() error {
 	if err := (CreateParams{
 		MD5:         t.MD5,
@@ -84,7 +84,7 @@ func (t Threat) Validate() error {
 	return nil
 }
 
-// ValidateMD5 checks that a value consists of exactly 32 hexadecimal symbols.
+// ValidateMD5 проверяет, что значение состоит из 32 шестнадцатеричных символов.
 func ValidateMD5(value MD5) error {
 	if len(value) != 32 {
 		return validationError("md5", "must contain exactly 32 hexadecimal characters")

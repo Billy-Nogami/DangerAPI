@@ -2,10 +2,10 @@ package threat
 
 import "time"
 
-// MD5 identifies a threat by the MD5 hash of the related file.
+// MD5 хранит идентификатор угрозы - хеш связанного с ней файла.
 type MD5 string
 
-// Type classifies the threat.
+// Type задаёт классификацию угрозы.
 type Type string
 
 const (
@@ -17,7 +17,7 @@ const (
 	TypeOther      Type = "other"
 )
 
-// Severity describes the impact of a threat.
+// Severity отражает уровень опасности угрозы.
 type Severity string
 
 const (
@@ -27,7 +27,7 @@ const (
 	SeverityCritical Severity = "critical"
 )
 
-// Threat is the domain entity stored by the service.
+// Threat описывает угрозу, с которой работает сервис.
 type Threat struct {
 	MD5         MD5
 	Name        string
@@ -40,7 +40,7 @@ type Threat struct {
 	UpdatedAt   time.Time
 }
 
-// CreateParams contains client-controlled fields for a new threat.
+// CreateParams содержит поля, которые клиент передаёт при создании угрозы.
 type CreateParams struct {
 	MD5         MD5
 	Name        string
@@ -51,7 +51,7 @@ type CreateParams struct {
 	FirstSeenAt *time.Time
 }
 
-// UpdateParams contains the mutable fields of a threat.
+// UpdateParams содержит изменяемые поля угрозы.
 type UpdateParams struct {
 	Name        string
 	Type        Type

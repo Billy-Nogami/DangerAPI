@@ -8,13 +8,13 @@ import (
 	"threat-service/internal/repository"
 )
 
-// ThreatService implements application scenarios for threat records.
+// ThreatService реализует сценарии работы с записями об угрозах.
 type ThreatService struct {
 	repository repository.ThreatRepository
 	clock      Clock
 }
 
-// NewThreatService creates a service with its required dependencies.
+// NewThreatService создаёт сервис с необходимыми зависимостями.
 func NewThreatService(repository repository.ThreatRepository, clock Clock) *ThreatService {
 	return &ThreatService{
 		repository: repository,
@@ -22,7 +22,7 @@ func NewThreatService(repository repository.ThreatRepository, clock Clock) *Thre
 	}
 }
 
-// Create validates and stores a new threat.
+// Create проверяет и сохраняет новую угрозу.
 func (s *ThreatService) Create(ctx context.Context, params threat.CreateParams) (threat.Threat, error) {
 	if err := params.Validate(); err != nil {
 		return threat.Threat{}, err
@@ -50,7 +50,7 @@ func (s *ThreatService) Create(ctx context.Context, params threat.CreateParams) 
 	return entity, nil
 }
 
-// GetByMD5 returns a threat identified by a valid MD5 hash.
+// GetByMD5 возвращает угрозу по корректному MD5-хешу.
 func (s *ThreatService) GetByMD5(ctx context.Context, md5 threat.MD5) (threat.Threat, error) {
 	if err := threat.ValidateMD5(md5); err != nil {
 		return threat.Threat{}, err
@@ -59,7 +59,7 @@ func (s *ThreatService) GetByMD5(ctx context.Context, md5 threat.MD5) (threat.Th
 	return s.repository.GetByMD5(ctx, threat.NormalizeMD5(md5))
 }
 
-// Update replaces all mutable fields of an existing threat.
+// Update полностью заменяет изменяемые поля существующей угрозы.
 func (s *ThreatService) Update(ctx context.Context, md5 threat.MD5, params threat.UpdateParams) (threat.Threat, error) {
 	if err := threat.ValidateMD5(md5); err != nil {
 		return threat.Threat{}, err
