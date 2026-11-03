@@ -185,6 +185,46 @@ func TestHealth(t *testing.T) {
 	}
 }
 
+func TestRequestID(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name          string
+		requestID     string
+		expectedValue string
+	}{
+		{
+			name:      "генерируется при отсутствии заголовка",
+			requestID: "",
+		},
+		{
+			name:          "сохраняется корректный заголовок клиента",
+			requestID:     "trace-42",
+			expectedValue: "trace-42",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodGet, "/health", nil)
+			if testCase.requestID != "" {
+				request.Header.Set(requestIDHeader, testCase.requestID)
+			}
+			response := httptest.NewRecorder()
+
+			newTestHandler(&threatServiceStub{}).ServeHTTP(response, request)
+
+			actual := response.Header().Get(requestIDHeader)
+			if actual == "" {
+				t.Fatal("в ответе отсутствует X-Request-ID")
+			}
+			if testCase.expectedValue != "" && actual != testCase.expectedValue {
+				t.Fatalf("X-Request-ID = %q, нужен %q", actual, testCase.expectedValue)
+			}
+		})
+	}
+}
+
 type threatServiceStub struct {
 	create func(context.Context, threat.CreateParams) (threat.Threat, error)
 	get    func(context.Context, threat.MD5) (threat.Threat, error)

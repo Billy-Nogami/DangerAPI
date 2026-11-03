@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"mime"
 	"net/http"
 	"time"
@@ -36,7 +37,7 @@ func NewHTTPHandler(service ThreatService, healthChecker HealthChecker) http.Han
 	mux.HandleFunc("POST /info", handler.createThreat)
 	mux.HandleFunc("GET /info/{md5}", handler.getThreat)
 	mux.HandleFunc("PUT /info/{md5}", handler.updateThreat)
-	return mux
+	return withRequestID(withAccessLog(log.Default(), mux))
 }
 
 type handler struct {

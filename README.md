@@ -8,6 +8,8 @@ REST-сервис для хранения и получения сведений
 - валидация MD5, типа, критичности, текста и категорий;
 - PostgreSQL и SQL-миграции;
 - HTTP-ошибки `400`, `404`, `409`, `500` в JSON-формате;
+- readiness-проверка `GET /health`;
+- `X-Request-ID` и журналы HTTP-запросов;
 - Docker Compose для локального запуска;
 - unit-тесты домена, сценариев, HTTP- и PostgreSQL-слоя.
 
@@ -82,6 +84,12 @@ curl --request POST http://localhost:8080/info \
 
 ```bash
 curl http://localhost:8080/info/d41d8cd98f00b204e9800998ecf8427e
+```
+
+Проверить готовность сервиса и доступность PostgreSQL:
+
+```bash
+curl http://localhost:8080/health
 ```
 
 Обновить угрозу:
