@@ -92,6 +92,8 @@ components:
       required:
         - md5
         - name
+        - type
+        - severity
       properties:
         md5:
           type: string
@@ -103,23 +105,82 @@ components:
           minLength: 1
           description: Название угрозы.
           example: Trojan.Win32.Generic
+        type:
+          $ref: '#/components/schemas/ThreatType'
+        severity:
+          $ref: '#/components/schemas/ThreatSeverity'
+        description:
+          type: string
+          maxLength: 4000
+          description: Описание угрозы.
+          example: Вредоносная программа, похищающая учётные данные.
+        categories:
+          type: array
+          description: Категории или теги угрозы.
+          maxItems: 20
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+          example: [banker, stealer]
+        firstSeenAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Время первого обнаружения угрозы.
+          example: '2026-10-15T10:00:00Z'
 
     ThreatUpdateRequest:
       type: object
       required:
         - name
+        - type
+        - severity
       properties:
         name:
           type: string
           minLength: 1
           description: Название угрозы.
           example: Trojan.Win32.Generic
+        type:
+          $ref: '#/components/schemas/ThreatType'
+        severity:
+          $ref: '#/components/schemas/ThreatSeverity'
+        description:
+          type: string
+          maxLength: 4000
+          description: Описание угрозы.
+          example: Вредоносная программа, похищающая учётные данные.
+        categories:
+          type: array
+          description: Категории или теги угрозы.
+          maxItems: 20
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+          example: [banker, stealer]
+        firstSeenAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Время первого обнаружения угрозы.
+          example: '2026-10-15T10:00:00Z'
 
     ThreatResponse:
       type: object
       required:
         - md5
         - name
+        - type
+        - severity
+        - description
+        - categories
+        - firstSeenAt
+        - createdAt
+        - updatedAt
       properties:
         md5:
           type: string
@@ -130,6 +191,46 @@ components:
           type: string
           description: Название угрозы.
           example: Trojan.Win32.Generic
+        type:
+          $ref: '#/components/schemas/ThreatType'
+        severity:
+          $ref: '#/components/schemas/ThreatSeverity'
+        description:
+          type: string
+          description: Описание угрозы.
+          example: Вредоносная программа, похищающая учётные данные.
+        categories:
+          type: array
+          description: Категории или теги угрозы.
+          items:
+            type: string
+          example: [banker, stealer]
+        firstSeenAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Время первого обнаружения угрозы.
+          example: '2026-10-15T10:00:00Z'
+        createdAt:
+          type: string
+          format: date-time
+          description: Время создания записи сервисом.
+          example: '2026-11-03T10:00:00Z'
+        updatedAt:
+          type: string
+          format: date-time
+          description: Время последнего обновления записи.
+          example: '2026-11-03T10:00:00Z'
+
+    ThreatType:
+      type: string
+      description: Классификация угрозы.
+      enum: [trojan, worm, ransomware, adware, spyware, other]
+
+    ThreatSeverity:
+      type: string
+      description: Уровень критичности угрозы.
+      enum: [low, medium, high, critical]
 
     ErrorResponse:
       type: object
