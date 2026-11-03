@@ -111,6 +111,12 @@ make check
 make test-race
 ```
 
+Интеграционные тесты поднимают временный контейнер PostgreSQL и проверяют API через HTTP:
+
+```bash
+make test-integration
+```
+
 ## Структура
 
 - `cmd/server` — точка входа;

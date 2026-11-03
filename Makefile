@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help up down reset logs ps migrate test test-race vet format check
+.PHONY: help up down reset logs ps migrate test test-race test-integration vet format check
 
 help:
 	@printf "Доступные команды:\n"
@@ -12,6 +12,7 @@ help:
 	@printf "  make migrate   Повторно применить миграции\n"
 	@printf "  make test      Запустить unit-тесты\n"
 	@printf "  make test-race Запустить тесты с проверкой гонок\n"
+	@printf "  make test-integration Запустить интеграционные тесты с PostgreSQL в Docker\n"
 	@printf "  make vet       Запустить статический анализ Go\n"
 	@printf "  make format    Отформатировать Go-код\n"
 	@printf "  make check     Проверить форматирование, тесты и vet\n"
@@ -39,6 +40,9 @@ test:
 
 test-race:
 	go test -race ./...
+
+test-integration:
+	go test -tags=integration ./tests/integration
 
 vet:
 	go vet ./...
