@@ -4,6 +4,10 @@ info:
   description: API для обмена информацией об угрозах.
   version: 1.0.0
 
+servers:
+  - url: /
+    description: Текущий экземпляр сервиса.
+
 paths:
   /health:
     get:

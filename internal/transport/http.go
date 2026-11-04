@@ -11,12 +11,32 @@ import (
 	"net/http"
 	"time"
 
+	swaggerFiles "github.com/swaggo/files/v2"
+
 	"threat-service/internal/domain/threat"
 	"threat-service/internal/repository"
 	"threat-service/internal/transport/generated"
+	"threat-service/openapi"
 )
 
 const maxRequestBodySize = 1 << 20
+
+const swaggerInitializer = `window.onload = function() {
+  window.ui = SwaggerUIBundle({
+    url: "/openapi.yaml",
+    dom_id: "#swagger-ui",
+    deepLinking: true,
+    presets: [
+      SwaggerUIBundle.presets.apis,
+      SwaggerUIStandalonePreset
+    ],
+    plugins: [
+      SwaggerUIBundle.plugins.DownloadUrl
+    ],
+    layout: "StandaloneLayout"
+  });
+};
+`
 
 // ThreatService описывает сценарии, которые нужны HTTP-обработчикам.
 type ThreatService interface {
@@ -33,9 +53,15 @@ type HealthChecker interface {
 // NewHTTPHandler собирает HTTP-маршруты сервиса угроз.
 func NewHTTPHandler(service ThreatService, healthChecker HealthChecker, rateLimiter *RateLimiter) http.Handler {
 	handler := &handler{service: service, healthChecker: healthChecker}
-	router := generated.HandlerWithOptions(handler, generated.StdHTTPServerOptions{
+	apiRouter := generated.HandlerWithOptions(handler, generated.StdHTTPServerOptions{
 		Middlewares: []generated.MiddlewareFunc{rateLimiter.Limit},
 	})
+
+	router := http.NewServeMux()
+	router.Handle("/swagger/", swaggerUIHandler())
+	router.HandleFunc("GET /openapi.yaml", serveOpenAPISpec)
+	router.Handle("/", apiRouter)
+
 	return withRequestID(withAccessLog(log.Default(), router))
 }
 
@@ -113,6 +139,26 @@ func (h *handler) UpdateThreat(w http.ResponseWriter, r *http.Request, md5 gener
 	}
 
 	writeJSON(w, http.StatusOK, threatResponseFromDomain(entity))
+}
+
+func swaggerUIHandler() http.Handler {
+	staticFiles := http.StripPrefix("/swagger/", http.FileServer(http.FS(swaggerFiles.FS)))
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/swagger/swagger-initializer.js" {
+			w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+			_, _ = w.Write([]byte(swaggerInitializer))
+			return
+		}
+
+		staticFiles.ServeHTTP(w, r)
+	})
+}
+
+func serveOpenAPISpec(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/yaml; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(openapi.Specification)
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, destination any) error {

@@ -5,6 +5,7 @@ go 1.26
 require (
 	github.com/jackc/pgx/v5 v5.12.0
 	github.com/oapi-codegen/runtime v1.8.0
+	github.com/swaggo/files/v2 v2.0.0
 )
 
 require (

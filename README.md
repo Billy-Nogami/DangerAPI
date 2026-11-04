@@ -9,6 +9,7 @@ REST-сервис для хранения и получения сведений
 - PostgreSQL и SQL-миграции;
 - HTTP-ошибки `400`, `404`, `409`, `500` в JSON-формате;
 - readiness-проверка `GET /health`;
+- Swagger UI для интерактивной работы с API;
 - `X-Request-ID` и журналы HTTP-запросов;
 - Docker Compose для локального запуска;
 - unit-тесты домена, сценариев, HTTP- и PostgreSQL-слоя.
@@ -27,6 +28,8 @@ make generate
 make check-generate
 ```
 
+После запуска сервиса спецификация доступна по адресу `http://localhost:8080/openapi.yaml`, а интерактивная документация Swagger UI — по адресу `http://localhost:8080/swagger/`. Swagger UI встроен в исполняемый файл и не требует доступа к внешним CDN.
+
 ## Быстрый старт
 
 Нужны Docker с Docker Compose и `make`.
@@ -37,6 +40,12 @@ make up
 ```
 
 Команда поднимет PostgreSQL, применит миграции и запустит API на `http://localhost:8080`.
+
+Открыть Swagger UI в браузере:
+
+```text
+http://localhost:8080/swagger/
+```
 
 Проверить состояние сервисов:
 

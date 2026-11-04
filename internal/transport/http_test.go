@@ -186,6 +186,56 @@ func TestHealth(t *testing.T) {
 	}
 }
 
+func TestDocumentationEndpoints(t *testing.T) {
+	t.Parallel()
+
+	handler := newTestHandler(&threatServiceStub{})
+	testCases := []struct {
+		name        string
+		path        string
+		contentType string
+		contains    string
+	}{
+		{
+			name:        "спецификация OpenAPI",
+			path:        "/openapi.yaml",
+			contentType: "application/yaml",
+			contains:    "openapi: 3.0.3",
+		},
+		{
+			name:        "интерфейс Swagger",
+			path:        "/swagger/",
+			contentType: "text/html",
+			contains:    "Swagger UI",
+		},
+		{
+			name:        "настройка интерфейса Swagger",
+			path:        "/swagger/swagger-initializer.js",
+			contentType: "application/javascript",
+			contains:    "url: \"/openapi.yaml\"",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodGet, testCase.path, nil)
+			response := httptest.NewRecorder()
+
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusOK {
+				t.Fatalf("статус = %d, нужен %d", response.Code, http.StatusOK)
+			}
+			if contentType := response.Header().Get("Content-Type"); !strings.HasPrefix(contentType, testCase.contentType) {
+				t.Fatalf("Content-Type = %q, нужен префикс %q", contentType, testCase.contentType)
+			}
+			if !strings.Contains(response.Body.String(), testCase.contains) {
+				t.Fatalf("тело ответа не содержит %q", testCase.contains)
+			}
+		})
+	}
+}
+
 func TestRequestID(t *testing.T) {
 	t.Parallel()
 
