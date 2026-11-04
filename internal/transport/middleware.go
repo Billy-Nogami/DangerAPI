@@ -4,7 +4,8 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"log"
+	"log/slog"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -27,21 +28,39 @@ func withRequestID(next http.Handler) http.Handler {
 	})
 }
 
-func withAccessLog(logger *log.Logger, next http.Handler) http.Handler {
+func withAccessLog(logger *slog.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		startedAt := time.Now()
 		recorder := &statusRecorder{ResponseWriter: w}
 		next.ServeHTTP(recorder, r)
 
-		logger.Printf(
-			"request_id=%s method=%s path=%s status=%d duration=%s",
-			requestIDFromContext(r.Context()),
-			r.Method,
-			r.URL.Path,
-			recorder.Status(),
-			time.Since(startedAt).Round(time.Millisecond),
-		)
+		attributes := []any{
+			"request_id", requestIDFromContext(r.Context()),
+			"method", r.Method,
+			"path", r.URL.Path,
+			"status", recorder.Status(),
+			"duration", time.Since(startedAt).Round(time.Millisecond),
+			"client_ip", clientIP(r.RemoteAddr),
+		}
+
+		switch {
+		case recorder.Status() >= http.StatusInternalServerError:
+			logger.Error("обработан HTTP-запрос", attributes...)
+		case recorder.Status() >= http.StatusBadRequest:
+			logger.Warn("обработан HTTP-запрос", attributes...)
+		default:
+			logger.Info("обработан HTTP-запрос", attributes...)
+		}
 	})
+}
+
+func clientIP(remoteAddress string) string {
+	host, _, err := net.SplitHostPort(remoteAddress)
+	if err != nil {
+		return remoteAddress
+	}
+
+	return host
 }
 
 func newRequestID() string {

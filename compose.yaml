@@ -17,13 +17,11 @@ services:
       start_period: 5s
 
   migrate:
-    image: migrate/migrate:v4.19.1
-    command:
-      - "-path=/migrations"
-      - "-database=postgres://${POSTGRES_USER:-threat_service}:${POSTGRES_PASSWORD:-threat_service}@db:5432/${POSTGRES_DB:-threat_service}?sslmode=disable"
-      - "up"
-    volumes:
-      - ./migrations:/migrations:ro
+    build:
+      context: .
+      target: migrate
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-threat_service}:${POSTGRES_PASSWORD:-threat_service}@db:5432/${POSTGRES_DB:-threat_service}?sslmode=disable
     depends_on:
       db:
         condition: service_healthy
@@ -31,9 +29,11 @@ services:
   api:
     build:
       context: .
+      target: api
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-threat_service}:${POSTGRES_PASSWORD:-threat_service}@db:5432/${POSTGRES_DB:-threat_service}?sslmode=disable
       HTTP_ADDRESS: :8080
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
       RATE_LIMIT_REQUESTS: ${RATE_LIMIT_REQUESTS:-60}
       RATE_LIMIT_WINDOW: ${RATE_LIMIT_WINDOW:-1m}
     ports:

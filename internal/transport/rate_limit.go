@@ -2,7 +2,6 @@ package transport
 
 import (
 	"math"
-	"net"
 	"net/http"
 	"strconv"
 	"sync"
@@ -40,7 +39,7 @@ func (l *RateLimiter) Limit(next http.Handler) http.Handler {
 			return
 		}
 
-		allowed, retryAfter := l.allow(clientIP(r), time.Now())
+		allowed, retryAfter := l.allow(clientIP(r.RemoteAddr), time.Now())
 		if !allowed {
 			w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(retryAfter.Seconds()))))
 			writeError(w, http.StatusTooManyRequests, "Превышен лимит запросов", "Повторите запрос позднее")
@@ -75,13 +74,4 @@ func (l *RateLimiter) allow(client string, now time.Time) (bool, time.Duration) 
 	window.requests++
 	l.clients[client] = window
 	return true, 0
-}
-
-func clientIP(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err == nil {
-		return host
-	}
-
-	return r.RemoteAddr
 }

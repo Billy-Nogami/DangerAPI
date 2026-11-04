@@ -6,6 +6,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -41,7 +43,8 @@ func TestThreatAPIWithPostgreSQL(t *testing.T) {
 	applyMigrations(t, ctx, pool)
 
 	threatService := usecase.NewThreatService(postgres.NewThreatRepository(pool), usecase.SystemClock{})
-	server := httptest.NewServer(transport.NewHTTPHandler(threatService, pool, transport.NewRateLimiter(100, time.Minute)))
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	server := httptest.NewServer(transport.NewHTTPHandler(logger, threatService, pool, transport.NewRateLimiter(100, time.Minute)))
 	defer server.Close()
 
 	assertStatus(t, http.MethodGet, server.URL+"/health", "", http.StatusOK)

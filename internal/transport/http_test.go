@@ -1,9 +1,12 @@
 package transport
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -177,7 +180,7 @@ func TestHealth(t *testing.T) {
 			request := httptest.NewRequest(http.MethodGet, "/health", nil)
 			response := httptest.NewRecorder()
 
-			NewHTTPHandler(&threatServiceStub{}, testCase.healthCheck, NewRateLimiter(1, time.Minute)).ServeHTTP(response, request)
+			NewHTTPHandler(newTestLogger(), &threatServiceStub{}, testCase.healthCheck, NewRateLimiter(1, time.Minute)).ServeHTTP(response, request)
 
 			if response.Code != testCase.wantStatus {
 				t.Fatalf("статус = %d, нужен %d", response.Code, testCase.wantStatus)
@@ -276,6 +279,33 @@ func TestRequestID(t *testing.T) {
 	}
 }
 
+func TestAccessLogContainsRequestData(t *testing.T) {
+	var output bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&output, nil))
+	handler := NewHTTPHandler(logger, &threatServiceStub{}, healthCheckerFunc(func(context.Context) error {
+		return nil
+	}), NewRateLimiter(100, time.Minute))
+	request := httptest.NewRequest(http.MethodGet, "/health", nil)
+	request.RemoteAddr = "192.0.2.10:12345"
+	request.Header.Set(requestIDHeader, "trace-42")
+
+	handler.ServeHTTP(httptest.NewRecorder(), request)
+
+	logLine := output.String()
+	for _, value := range []string{
+		"msg=\"обработан HTTP-запрос\"",
+		"request_id=trace-42",
+		"method=GET",
+		"path=/health",
+		"status=200",
+		"client_ip=192.0.2.10",
+	} {
+		if !strings.Contains(logLine, value) {
+			t.Fatalf("журнал не содержит %q: %s", value, logLine)
+		}
+	}
+}
+
 func TestRateLimit(t *testing.T) {
 	t.Parallel()
 
@@ -284,7 +314,7 @@ func TestRateLimit(t *testing.T) {
 			return testThreat(), nil
 		},
 	}
-	handler := NewHTTPHandler(service, healthCheckerFunc(func(context.Context) error {
+	handler := NewHTTPHandler(newTestLogger(), service, healthCheckerFunc(func(context.Context) error {
 		return nil
 	}), NewRateLimiter(1, time.Minute))
 
@@ -314,9 +344,13 @@ func (f healthCheckerFunc) Ping(ctx context.Context) error {
 }
 
 func newTestHandler(service *threatServiceStub) http.Handler {
-	return NewHTTPHandler(service, healthCheckerFunc(func(context.Context) error {
+	return NewHTTPHandler(newTestLogger(), service, healthCheckerFunc(func(context.Context) error {
 		return nil
 	}), NewRateLimiter(100, time.Minute))
+}
+
+func newTestLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
 func (s *threatServiceStub) Create(ctx context.Context, params threat.CreateParams) (threat.Threat, error) {

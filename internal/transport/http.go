@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"mime"
 	"net/http"
 	"time"
@@ -51,7 +51,11 @@ type HealthChecker interface {
 }
 
 // NewHTTPHandler собирает HTTP-маршруты сервиса угроз.
-func NewHTTPHandler(service ThreatService, healthChecker HealthChecker, rateLimiter *RateLimiter) http.Handler {
+func NewHTTPHandler(logger *slog.Logger, service ThreatService, healthChecker HealthChecker, rateLimiter *RateLimiter) http.Handler {
+	if logger == nil {
+		logger = slog.Default()
+	}
+
 	handler := &handler{service: service, healthChecker: healthChecker}
 	apiRouter := generated.HandlerWithOptions(handler, generated.StdHTTPServerOptions{
 		Middlewares: []generated.MiddlewareFunc{rateLimiter.Limit},
@@ -62,7 +66,7 @@ func NewHTTPHandler(service ThreatService, healthChecker HealthChecker, rateLimi
 	router.HandleFunc("GET /openapi.yaml", serveOpenAPISpec)
 	router.Handle("/", apiRouter)
 
-	return withRequestID(withAccessLog(log.Default(), router))
+	return withRequestID(withAccessLog(logger, router))
 }
 
 type handler struct {

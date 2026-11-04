@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help up down reset logs ps migrate test test-race test-integration generate check-generate vet format check
+.PHONY: help up down reset logs logs-api logs-migrate ps migrate test test-race test-integration generate check-generate vet format check
 
 help:
 	@printf "Доступные команды:\n"
@@ -8,6 +8,8 @@ help:
 	@printf "  make down      Остановить контейнеры\n"
 	@printf "  make reset     Удалить контейнеры и данные PostgreSQL\n"
 	@printf "  make logs      Показать логи всех сервисов\n"
+	@printf "  make logs-api  Показать логи API\n"
+	@printf "  make logs-migrate Показать журнал применения миграций\n"
 	@printf "  make ps        Показать состояние сервисов\n"
 	@printf "  make migrate   Повторно применить миграции\n"
 	@printf "  make test      Запустить unit-тесты\n"
@@ -30,6 +32,12 @@ reset:
 
 logs:
 	docker compose logs --follow
+
+logs-api:
+	docker compose logs --follow api
+
+logs-migrate:
+	docker compose logs migrate
 
 ps:
 	docker compose ps
