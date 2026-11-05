@@ -1,114 +1,130 @@
 # Information Exchange Service
 
-REST-сервис для хранения и получения сведений об угрозах. Контракт API описан в [openapi/openapi.yaml](openapi/openapi.yaml).
+REST-сервис для хранения и предоставления сведений об угрозах. Проект выполнен на Go с PostgreSQL и следует принципам Clean Architecture. Внешний контракт описан в OpenAPI, а Swagger UI позволяет проверить API прямо из браузера.
 
-## Что реализовано
+## Возможности
 
-- создание, получение и полное обновление угрозы;
-- валидация MD5, типа, критичности, текста и категорий;
-- PostgreSQL и SQL-миграции;
-- HTTP-ошибки `400`, `404`, `409`, `500` в JSON-формате;
-- readiness-проверка `GET /health`;
-- Swagger UI для интерактивной работы с API;
-- `X-Request-ID` и журналы HTTP-запросов;
-- структурированные журналы запуска, подключения к PostgreSQL и миграций;
-- Docker Compose для локального запуска;
-- unit-тесты домена, сценариев, HTTP- и PostgreSQL-слоя.
+- создание, получение и полное обновление сведений об угрозе;
+- валидация MD5, типа, критичности, описания и категорий;
+- запрет повторного создания записи с тем же MD5;
+- PostgreSQL и версионируемые SQL-миграции;
+- healthcheck, Swagger UI и отдача OpenAPI-спецификации;
+- ограничение частоты запросов по IP;
+- `X-Request-ID` и структурированные журналы;
+- unit-, HTTP- и интеграционные тесты;
+- воспроизводимый запуск через Docker Compose.
 
-## OpenAPI и генерация кода
+## Стек
 
-[openapi/openapi.yaml](openapi/openapi.yaml) — единственный источник правды для внешнего HTTP-контракта. Из него генерируются JSON-модели, интерфейс обработчиков и маршруты стандартного `net/http`.
+| Область | Решение |
+|---|---|
+| Язык и HTTP | Go 1.26, стандартный `net/http` |
+| Контракт API | OpenAPI 3.0.3, `oapi-codegen` |
+| Хранилище | PostgreSQL 17, `pgx` |
+| Миграции | `golang-migrate` |
+| Документация API | Swagger UI |
+| Контейнеризация | Docker и Docker Compose |
 
-```bash
-make generate
+## Архитектура
+
+```text
+HTTP / Swagger
+      │
+      ▼
+transport ──► usecase ──► domain
+      │          │
+      ▼          ▼
+ PostgreSQL adapter ──► PostgreSQL
 ```
 
-Сгенерированный файл `internal/transport/generated/api.gen.go` вручную не редактируется. Проверка актуальности генерации:
-
-```bash
-make check-generate
-```
-
-После запуска сервиса спецификация доступна по адресу `http://localhost:8080/openapi.yaml`, а интерактивная документация Swagger UI — по адресу `http://localhost:8080/swagger/`. Swagger UI встроен в исполняемый файл и не требует доступа к внешним CDN.
+| Каталог | Ответственность |
+|---|---|
+| `cmd/server` | Сборка зависимостей и запуск HTTP-сервера |
+| `cmd/migrate` | Применение миграций с журналированием результата |
+| `internal/domain` | Сущности угроз и бизнес-валидация |
+| `internal/usecase` | Сценарии создания, получения и обновления угроз |
+| `internal/repository` | Контракт хранилища и PostgreSQL-адаптер |
+| `internal/transport` | HTTP-обработчики, middleware, rate limit и Swagger |
+| `migrations` | Последовательные SQL-миграции |
+| `openapi` | Исходная OpenAPI-спецификация |
 
 ## Быстрый старт
 
-Нужны Docker с Docker Compose и `make`.
+Требуются Docker Desktop с Docker Compose и `make`.
 
 ```bash
 cp .env.example .env
+make hooks
 make up
 ```
 
-Команда поднимет PostgreSQL, применит миграции и запустит API на `http://localhost:8080`.
+`make up` собирает сервис, запускает PostgreSQL, применяет миграции и поднимает API. По умолчанию сервис доступен по адресу `http://localhost:8080`.
 
-Открыть Swagger UI в браузере:
+Если порты `8080` или `5432` уже заняты, измените в `.env` три значения согласованно:
 
-```text
-http://localhost:8080/swagger/
+```dotenv
+HTTP_PORT=8083
+POSTGRES_PORT=5434
+PUBLIC_BASE_URL=http://localhost:8083
 ```
 
-Проверить состояние сервисов:
+Проверить состояние окружения:
 
 ```bash
 make ps
+curl http://localhost:8080/health
 ```
 
-Посмотреть логи:
-
-```bash
-make logs
-```
-
-Отдельно посмотреть обращения к API или применение миграций:
-
-```bash
-make logs-api
-make logs-migrate
-```
-
-Остановить окружение:
+Остановить сервисы, сохранив БД:
 
 ```bash
 make down
 ```
 
-Полностью удалить локальную БД и контейнеры:
+Полностью удалить контейнеры и локальные данные PostgreSQL:
 
 ```bash
 make reset
 ```
 
-`make reset` удаляет данные PostgreSQL.
+## Документация API
 
-## Переменные окружения
+После запуска доступны:
 
-| Переменная | Значение по умолчанию | Назначение |
-|---|---|---|
-| `POSTGRES_DB` | `threat_service` | Имя базы данных |
-| `POSTGRES_USER` | `threat_service` | Пользователь PostgreSQL |
-| `POSTGRES_PASSWORD` | `threat_service` | Пароль PostgreSQL |
-| `POSTGRES_PORT` | `5432` | Порт PostgreSQL на хосте |
-| `HTTP_PORT` | `8080` | Порт API на хосте |
-| `PUBLIC_BASE_URL` | `http://localhost:8080` | Внешний адрес API, отображаемый в журнале запуска |
-| `RATE_LIMIT_REQUESTS` | `60` | Число API-запросов с одного IP за окно |
-| `RATE_LIMIT_WINDOW` | `1m` | Длительность окна ограничения |
+| Адрес | Назначение |
+|---|---|
+| `/swagger/` | Интерактивная Swagger UI-документация |
+| `/openapi.yaml` | Исходная OpenAPI 3.0-спецификация |
+| `/health` | Readiness-проверка API и PostgreSQL |
 
-Приложение получает `DATABASE_URL` и `HTTP_ADDRESS` из Docker Compose. При ручном запуске их нужно задать самостоятельно.
+Swagger UI встроен в исполняемый файл и не требует доступа к внешним CDN.
 
-## Журналирование
+## HTTP API
 
-Все журналы выводятся в `stdout`, поэтому при локальном запуске через Docker доступны командой `make logs`. Пароль из строки подключения к PostgreSQL в журнал не попадает.
+| Метод | Путь | Назначение | Успешный ответ |
+|---|---|---|---|
+| `POST` | `/info` | Создать угрозу | `201 Created` |
+| `GET` | `/info/{md5}` | Получить угрозу по MD5 | `200 OK` |
+| `PUT` | `/info/{md5}` | Полностью обновить угрозу | `200 OK` |
+| `GET` | `/health` | Проверить готовность сервиса | `200 OK` |
 
-- API при старте фиксирует параметры запуска, адрес прослушивания, подключение к PostgreSQL и URL API, healthcheck, OpenAPI и Swagger UI;
-- обработанный HTTP-запрос содержит `request_id`, метод, путь, IP клиента, статус и длительность; тела запросов и заголовки не записываются;
-- контейнер `migrate` фиксирует начало миграций, версию до применения, результат и итоговую версию.
+`md5` должен содержать ровно 32 шестнадцатеричных символа. При создании он уникален.
 
-Если меняется `HTTP_PORT`, укажите соответствующий внешний адрес в `PUBLIC_BASE_URL`, чтобы ссылки в сообщении о запуске оставались корректными.
+### Модель угрозы
 
-## Примеры запросов
+| Поле | Тип | Обязательное | Описание |
+|---|---|---|---|
+| `md5` | string | при создании | MD5-хеш файла |
+| `name` | string | да | Название угрозы |
+| `type` | enum | да | `trojan`, `worm`, `ransomware`, `adware`, `spyware`, `other` |
+| `severity` | enum | да | `low`, `medium`, `high`, `critical` |
+| `description` | string | нет | Описание, до 4 000 символов |
+| `categories` | string[] | нет | Не более 20 уникальных категорий |
+| `firstSeenAt` | RFC 3339 date-time | нет | Время первого обнаружения |
+| `createdAt` | RFC 3339 date-time | в ответе | Время создания записи |
+| `updatedAt` | RFC 3339 date-time | в ответе | Время последнего обновления |
 
-Создать угрозу:
+### Пример создания угрозы
 
 ```bash
 curl --request POST http://localhost:8080/info \
@@ -124,57 +140,99 @@ curl --request POST http://localhost:8080/info \
   }'
 ```
 
-Получить угрозу:
+Ошибки всегда отдаются в JSON-формате:
 
-```bash
-curl http://localhost:8080/info/d41d8cd98f00b204e9800998ecf8427e
+```json
+{
+  "message": "Угроза не найдена",
+  "details": "Дополнительное описание, если оно нужно"
+}
 ```
 
-Проверить готовность сервиса и доступность PostgreSQL:
+Возможные статусы: `400` — неверные данные, `404` — запись не найдена, `409` — MD5 уже существует, `429` — превышен лимит, `500` — внутренняя ошибка.
+
+## OpenAPI и генерация кода
+
+[`openapi/openapi.yaml`](openapi/openapi.yaml) — единственный источник правды внешнего контракта. Из него генерируются модели JSON, интерфейс обработчиков и маршрутизация HTTP-слоя.
 
 ```bash
-curl http://localhost:8080/health
+make generate
+make check-generate
 ```
 
-Обновить угрозу:
+Файл `internal/transport/generated/api.gen.go` вручную не редактируется. Если меняется OpenAPI-спецификация, нужно выполнить `make generate` и добавить обновлённый файл в тот же коммит.
+
+## Миграции
+
+При `make up` отдельный контейнер `migrate` применяет SQL-файлы из `migrations` до запуска API. Повторно проверить или применить миграции:
 
 ```bash
-curl --request PUT http://localhost:8080/info/d41d8cd98f00b204e9800998ecf8427e \
-  --header 'Content-Type: application/json' \
-  --data '{
-    "name": "Trojan.Win32.Banker",
-    "type": "trojan",
-    "severity": "critical",
-    "description": "Обновлённая классификация.",
-    "categories": ["banker", "credential-theft"],
-    "firstSeenAt": "2026-10-15T10:00:00Z"
-  }'
+make migrate
+make logs-migrate
 ```
 
-## Проверки
+## Журналирование
+
+Все журналы выводятся в `stdout`, поэтому доступны через Docker Compose:
+
+```bash
+make logs
+make logs-api
+make logs-migrate
+```
+
+Сервис журналирует запуск, подключение к PostgreSQL, URL API, Swagger и OpenAPI. Каждая HTTP-строка содержит `request_id`, метод, путь, IP клиента, статус и длительность. Тела запросов, заголовки и пароль БД в журналы не попадают.
+
+## Проверки и pre-commit
+
+Основная проверка проекта:
 
 ```bash
 make check
 ```
 
-Дополнительно можно проверить гонки данных:
+Она проверяет форматирование `gofmt`, актуальность сгенерированного OpenAPI-кода, unit- и HTTP-тесты, а также выполняет `go vet`.
 
-```bash
-make test-race
-```
-
-Интеграционные тесты поднимают временный контейнер PostgreSQL и проверяют API через HTTP:
+Интеграционные тесты с временным PostgreSQL-контейнером:
 
 ```bash
 make test-integration
 ```
 
-## Структура
+Pre-commit hook не требует сторонних менеджеров пакетов. Он подключается один раз на рабочем компьютере:
 
-- `cmd/server` — точка входа;
-- `internal/domain` — сущности и правила;
-- `internal/usecase` — прикладные сценарии;
-- `internal/repository` — контракт хранилища и PostgreSQL-адаптер;
-- `internal/transport` — HTTP-слой;
-- `migrations` — SQL-миграции;
-- `openapi` — контракт API.
+```bash
+make hooks
+```
+
+После этого перед каждым `git commit` автоматически запускается `make check`. Коммит не будет создан, пока не пройдут форматирование, генерация, тесты и `go vet`.
+
+## Конфигурация
+
+| Переменная | По умолчанию | Назначение |
+|---|---|---|
+| `POSTGRES_DB` | `threat_service` | Имя базы данных |
+| `POSTGRES_USER` | `threat_service` | Пользователь PostgreSQL |
+| `POSTGRES_PASSWORD` | `threat_service` | Пароль PostgreSQL |
+| `POSTGRES_PORT` | `5432` | Порт PostgreSQL на хосте |
+| `HTTP_PORT` | `8080` | Порт API на хосте |
+| `PUBLIC_BASE_URL` | `http://localhost:8080` | Внешний URL в журналах запуска |
+| `RATE_LIMIT_REQUESTS` | `60` | Число запросов с одного IP за окно |
+| `RATE_LIMIT_WINDOW` | `1m` | Длительность окна rate limit |
+
+`DATABASE_URL` и `HTTP_ADDRESS` формируются Docker Compose автоматически и не должны добавляться в `.env` для обычного локального запуска.
+
+## Команды Make
+
+| Команда | Назначение |
+|---|---|
+| `make hooks` | Подключить pre-commit hook |
+| `make up` / `make down` | Запустить / остановить окружение |
+| `make reset` | Удалить окружение и данные БД |
+| `make ps` | Показать состояние контейнеров |
+| `make logs` | Следить за журналами всех сервисов |
+| `make migrate` | Повторно применить миграции |
+| `make generate` | Обновить код из OpenAPI |
+| `make check` | Запустить обязательные проверки |
+| `make test-race` | Запустить тесты с детектором гонок |
+| `make test-integration` | Запустить интеграционные тесты |

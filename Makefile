@@ -1,9 +1,10 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help up down reset logs logs-api logs-migrate ps migrate test test-race test-integration generate check-generate vet format check
+.PHONY: help hooks up down reset logs logs-api logs-migrate ps migrate test test-race test-integration generate check-generate vet format check
 
 help:
 	@printf "Доступные команды:\n"
+	@printf "  make hooks     Подключить локальный pre-commit hook\n"
 	@printf "  make up        Запустить PostgreSQL, миграции и API\n"
 	@printf "  make down      Остановить контейнеры\n"
 	@printf "  make reset     Удалить контейнеры и данные PostgreSQL\n"
@@ -20,6 +21,10 @@ help:
 	@printf "  make vet       Запустить статический анализ Go\n"
 	@printf "  make format    Отформатировать Go-код\n"
 	@printf "  make check     Проверить форматирование, тесты и vet\n"
+
+hooks:
+	git config core.hooksPath .githooks
+	@printf "Pre-commit hook подключён. Перед коммитом будет выполняться make check.\n"
 
 up:
 	docker compose up --build -d
