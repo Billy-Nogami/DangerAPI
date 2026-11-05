@@ -28,13 +28,20 @@ REST-сервис для хранения и предоставления све
 ## Архитектура
 
 ```text
-HTTP / Swagger
-      │
-      ▼
-transport ──► usecase ──► domain
-      │          │
-      ▼          ▼
- PostgreSQL adapter ──► PostgreSQL
+Клиент / Swagger UI
+        │ HTTP
+        ▼
+    transport
+        │ вызывает сценарий
+        ▼
+     usecase ─────────────► domain
+        │                    ▲
+        │ через интерфейс     │ правила и валидация
+        ▼                    │
+ ThreatRepository ◄─────────┘
+        │ реализация
+        ▼
+ PostgreSQL adapter ───────► PostgreSQL
 ```
 
 | Каталог | Ответственность |
@@ -48,6 +55,18 @@ transport ──► usecase ──► domain
 | `migrations` | Последовательные SQL-миграции |
 | `openapi` | Исходная OpenAPI-спецификация |
 
+### Правило зависимостей
+
+Внутренние слои ничего не знают о HTTP, Docker или PostgreSQL. `domain` содержит только сущности и правила. `usecase` выполняет прикладные операции и зависит от интерфейса `ThreatRepository`, а не от конкретной БД. PostgreSQL-адаптер реализует этот интерфейс, а `cmd/server` собирает все зависимости при запуске. Поэтому HTTP-слой или БД можно заменить без изменения бизнес-правил.
+
+### Путь одного запроса
+
+1. Клиент отправляет запрос, например `POST /info`.
+2. `transport` проверяет лимит, добавляет `X-Request-ID`, разбирает JSON и вызывает сценарий.
+3. `usecase` передаёт данные доменной модели для проверки бизнес-правил.
+4. `usecase` обращается к `ThreatRepository`; PostgreSQL-адаптер сохраняет или читает данные.
+5. `transport` преобразует результат в JSON, возвращает HTTP-статус и записывает строку журнала.
+
 ## Быстрый старт
 
 Требуются Docker Desktop с Docker Compose и `make`.
@@ -58,7 +77,13 @@ make hooks
 make up
 ```
 
-`make up` собирает сервис, запускает PostgreSQL, применяет миграции и поднимает API. По умолчанию сервис доступен по адресу `http://localhost:8080`.
+`make up` собирает сервис, запускает PostgreSQL, применяет миграции и поднимает API. Контейнеры стартуют в следующем порядке:
+
+```text
+db ──► healthcheck PostgreSQL ──► migrate ──► api ──► healthcheck API
+```
+
+API запускается только после успешного завершения миграций. По умолчанию внешний адрес сервиса — `http://localhost:8080`.
 
 Если порты `8080` или `5432` уже заняты, измените в `.env` три значения согласованно:
 
@@ -68,11 +93,21 @@ POSTGRES_PORT=5434
 PUBLIC_BASE_URL=http://localhost:8083
 ```
 
-Проверить состояние окружения:
+После запуска задайте адрес API и проверьте результат:
 
 ```bash
+export API_URL=http://localhost:8080
 make ps
-curl http://localhost:8080/health
+curl "$API_URL/health"
+```
+
+Затем откройте в браузере `http://localhost:8080/swagger/`. При изменённом порте используйте значение `PUBLIC_BASE_URL` из `.env` вместо `http://localhost:8080`.
+
+Посмотреть, что произошло во время запуска:
+
+```bash
+make logs-migrate
+make logs-api
 ```
 
 Остановить сервисы, сохранив БД:
