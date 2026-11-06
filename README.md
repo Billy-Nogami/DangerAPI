@@ -2,6 +2,8 @@
 
 Тестовое задание: REST-сервис для хранения информации об угрозах. Сервис позволяет создавать, получать и обновлять записи по MD5. Для запуска используются Go, PostgreSQL, OpenAPI и Docker Compose.
 
+Репозиторий: [github.com/Billy-Nogami/DangerAPI](https://github.com/Billy-Nogami/DangerAPI)
+
 ## Запуск и первый запрос
 
 Нужны Docker Desktop с Docker Compose и `make`.
