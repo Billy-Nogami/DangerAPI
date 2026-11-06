@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help hooks up down reset logs logs-api logs-migrate ps migrate test test-race test-integration generate check-generate vet format check
+.PHONY: help hooks up down reset logs logs-api logs-migrate ps migrate verify test test-race test-integration generate check-generate vet format check
 
 help:
 	@printf "Доступные команды:\n"
@@ -12,6 +12,7 @@ help:
 	@printf "  make logs-api  Показать логи API\n"
 	@printf "  make logs-migrate Показать журнал применения миграций\n"
 	@printf "  make ps        Показать состояние сервисов\n"
+	@printf "  make verify    Проверить работающий API, БД и Swagger\n"
 	@printf "  make migrate   Повторно применить миграции\n"
 	@printf "  make test      Запустить unit-тесты\n"
 	@printf "  make test-race Запустить тесты с проверкой гонок\n"
@@ -46,6 +47,11 @@ logs-migrate:
 
 ps:
 	docker compose ps
+
+verify:
+	@docker compose exec -T api wget -q -O - http://localhost:8080/health
+	@docker compose exec -T api wget -q -O /dev/null http://localhost:8080/swagger/
+	@printf "API, PostgreSQL и Swagger UI доступны.\n"
 
 migrate:
 	docker compose run --rm migrate
