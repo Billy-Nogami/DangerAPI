@@ -2,6 +2,62 @@
 
 Тестовое задание: REST-сервис для хранения информации об угрозах. Сервис позволяет создавать, получать и обновлять записи по MD5. Для запуска используются Go, PostgreSQL, OpenAPI и Docker Compose.
 
+## Запуск и первый запрос
+
+Нужны Docker Desktop с Docker Compose и `make`.
+
+Сначала один раз создайте локальный файл конфигурации:
+
+```bash
+cp .env.example .env
+```
+
+Пример `.env`:
+
+```dotenv
+POSTGRES_DB=threat_service
+POSTGRES_USER=threat_service
+POSTGRES_PASSWORD=threat_service
+POSTGRES_PORT=5432
+HTTP_PORT=8080
+PUBLIC_BASE_URL=http://localhost:8080
+RATE_LIMIT_REQUESTS=60
+RATE_LIMIT_WINDOW=1m
+```
+
+После этого весь проект запускается одной командой:
+
+```bash
+make up
+```
+
+`make up` выполняет `docker compose up --build -d`: собирает приложение, поднимает PostgreSQL, применяет миграции и запускает API. Контейнеры запускаются в порядке `db → migrate → api`.
+
+Swagger UI: [http://localhost:8080/swagger/](http://localhost:8080/swagger/)
+
+Проверить запущенное окружение:
+
+```bash
+make verify
+```
+
+Пример запроса на создание угрозы:
+
+```bash
+curl --request POST http://localhost:8080/info \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "md5": "d41d8cd98f00b204e9800998ecf8427e",
+    "name": "Trojan.Win32.Generic",
+    "type": "trojan",
+    "severity": "high",
+    "description": "Вредоносная программа.",
+    "categories": ["banker", "stealer"]
+  }'
+```
+
+Если порты `8080` или `5432` заняты, измените `HTTP_PORT`, `POSTGRES_PORT` и `PUBLIC_BASE_URL` в `.env` согласованно. Например: `8083`, `5434`, `http://localhost:8083`.
+
 ## Возможности
 
 - создание, получение и полное обновление сведений об угрозе;
@@ -40,56 +96,6 @@
 
 Проект разделён на слои Clean Architecture: доменная модель и сценарии находятся отдельно от HTTP и PostgreSQL; адаптеры подключаются в `cmd/server` при запуске.
 
-## Быстрый старт
-
-Требуются Docker Desktop с Docker Compose и `make`.
-
-```bash
-cp .env.example .env
-make hooks
-make up
-```
-
-`make up` собирает сервис, запускает PostgreSQL, применяет миграции и поднимает API. Контейнеры стартуют в следующем порядке:
-
-```text
-db ──► healthcheck PostgreSQL ──► migrate ──► api ──► healthcheck API
-```
-
-API запускается только после успешного завершения миграций. По умолчанию внешний адрес сервиса — `http://localhost:8080`.
-
-Если порты `8080` или `5432` уже заняты, измените в `.env` три значения согласованно:
-
-```dotenv
-HTTP_PORT=8083
-POSTGRES_PORT=5434
-PUBLIC_BASE_URL=http://localhost:8083
-```
-
-После запуска задайте адрес API и проверьте результат:
-
-```bash
-export API_URL=http://localhost:8080
-curl "$API_URL/health"
-make verify
-```
-
-Затем откройте в браузере `http://localhost:8080/swagger/`. При изменённом порте используйте значение `PUBLIC_BASE_URL` из `.env` вместо `http://localhost:8080`.
-
-Для просмотра журналов используйте `make logs`.
-
-Остановить сервисы, сохранив БД:
-
-```bash
-make down
-```
-
-Полностью удалить контейнеры и локальные данные PostgreSQL:
-
-```bash
-make reset
-```
-
 ## Документация API
 
 После запуска доступны:
@@ -126,22 +132,6 @@ Swagger UI встроен в исполняемый файл и не требу�
 | `firstSeenAt` | RFC 3339 date-time | нет | Время первого обнаружения |
 | `createdAt` | RFC 3339 date-time | в ответе | Время создания записи |
 | `updatedAt` | RFC 3339 date-time | в ответе | Время последнего обновления |
-
-### Пример создания угрозы
-
-```bash
-curl --request POST http://localhost:8080/info \
-  --header 'Content-Type: application/json' \
-  --data '{
-    "md5": "d41d8cd98f00b204e9800998ecf8427e",
-    "name": "Trojan.Win32.Generic",
-    "type": "trojan",
-    "severity": "high",
-    "description": "Вредоносная программа.",
-    "categories": ["banker", "stealer"],
-    "firstSeenAt": "2026-10-15T10:00:00Z"
-  }'
-```
 
 Ошибки всегда отдаются в JSON-формате:
 
@@ -203,21 +193,6 @@ make hooks
 ```
 
 После этого перед каждым `git commit` автоматически запускается `make check`. Коммит не будет создан, пока не пройдут форматирование, генерация, тесты и `go vet`.
-
-## Конфигурация
-
-| Переменная | По умолчанию | Назначение |
-|---|---|---|
-| `POSTGRES_DB` | `threat_service` | Имя базы данных |
-| `POSTGRES_USER` | `threat_service` | Пользователь PostgreSQL |
-| `POSTGRES_PASSWORD` | `threat_service` | Пароль PostgreSQL |
-| `POSTGRES_PORT` | `5432` | Порт PostgreSQL на хосте |
-| `HTTP_PORT` | `8080` | Порт API на хосте |
-| `PUBLIC_BASE_URL` | `http://localhost:8080` | Внешний URL в журналах запуска |
-| `RATE_LIMIT_REQUESTS` | `60` | Число запросов с одного IP за окно |
-| `RATE_LIMIT_WINDOW` | `1m` | Длительность окна rate limit |
-
-`DATABASE_URL` и `HTTP_ADDRESS` формируются Docker Compose автоматически и не должны добавляться в `.env` для обычного локального запуска.
 
 ## Команды Make
 
